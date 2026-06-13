@@ -7,9 +7,10 @@ import { mergeFinishEvents } from "./finish/finishEvents";
 import { useFinishLine } from "./hooks/useFinishLine";
 import { createMotionDetectionState, detectMotionFromVideo, resetMotionDetectionState } from "./motion/motionDetection";
 import { updateRiderTracks } from "./tracking/riderTracking";
-import type { FinishEvent, RiderTrack } from "./types";
+import type { BoundingBox, FinishEvent, Point, RiderTrack } from "./types";
 
 const LIVE_DETECTION_INTERVAL_MS = 120;
+const VIRTUAL_TEST_NUMBERS = [9, 17, 84, 116, 203, 232, 323, 501, 777];
 
 type Sensitivity = "laag" | "normaal" | "hoog";
 type DetectionZone = "smal" | "normaal" | "breed";
@@ -80,6 +81,56 @@ export function App() {
     resetMotionDetectionState(motionStateRef.current);
   }
 
+
+  function runVirtualTestPassage() {
+    const timestamp = Date.now();
+    const number = String(VIRTUAL_TEST_NUMBERS[Math.floor(Math.random() * VIRTUAL_TEST_NUMBERS.length)]);
+    const trackId = `virtual-test-${timestamp}`;
+    const crossingPoint = finishLine
+      ? clampPoint({
+          x: (finishLine.a.x + finishLine.b.x) / 2,
+          y: (finishLine.a.y + finishLine.b.y) / 2,
+        })
+      : { x: 0.5, y: 0.55 };
+
+    const travelVector = finishLine ? getPerpendicularTravelVector(finishLine) : { x: 0, y: 1 };
+    const previousPoint = clampPoint({
+      x: crossingPoint.x - travelVector.x * 0.14,
+      y: crossingPoint.y - travelVector.y * 0.14,
+    });
+    const currentPoint = clampPoint({
+      x: crossingPoint.x + travelVector.x * 0.14,
+      y: crossingPoint.y + travelVector.y * 0.14,
+    });
+    const bbox = makeVirtualBbox(currentPoint);
+
+    const virtualTrack: RiderTrack = {
+      id: trackId,
+      number,
+      confidence: 0.99,
+      previousPoint,
+      currentPoint,
+      bbox,
+      firstSeenAt: timestamp,
+      lastSeenAt: timestamp,
+      hasFinished: true,
+    };
+
+    const virtualEvent: FinishEvent = {
+      id: crypto.randomUUID(),
+      trackId,
+      number,
+      confidence: 0.99,
+      crossedAt: timestamp,
+      crossingPoint,
+    };
+
+    setShowDebug(true);
+    setTracks((current) => [...current.filter((track) => !track.id.startsWith("virtual-test-")), virtualTrack]);
+    setFinishEvents((current) => mergeFinishEvents(current, [virtualEvent], timestamp));
+  }
+
+
   return (
     <main className="appShell raceModeShell">
       <header className="appHeader compactHeader">
@@ -147,7 +198,10 @@ export function App() {
           </label>
         </div>
 
-        <div className="buttonRow">
+        <div className="buttonRow stackedOnSmall">
+          <button className="primaryButton testButton" onClick={runVirtualTestPassage} type="button">
+            Virtuele testpassage
+          </button>
           <button className="secondaryButton" onClick={clearRace} type="button">
             Lijst wissen
           </button>
@@ -163,4 +217,35 @@ export function App() {
       </section>
     </main>
   );
+}
+
+
+function getPerpendicularTravelVector(line: { a: Point; b: Point }): Point {
+  const dx = line.b.x - line.a.x;
+  const dy = line.b.y - line.a.y;
+  const length = Math.hypot(dx, dy) || 1;
+  return {
+    x: -dy / length,
+    y: dx / length,
+  };
+}
+
+function makeVirtualBbox(point: Point): BoundingBox {
+  return {
+    x: clamp(point.x - 0.055, 0, 1),
+    y: clamp(point.y - 0.075, 0, 1),
+    width: 0.11,
+    height: 0.15,
+  };
+}
+
+function clampPoint(point: Point): Point {
+  return {
+    x: clamp(point.x, 0, 1),
+    y: clamp(point.y, 0, 1),
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }

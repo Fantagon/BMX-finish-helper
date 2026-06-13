@@ -8,15 +8,15 @@ type Sensitivity = "laag" | "normaal" | "hoog";
 type DetectionZone = "smal" | "normaal" | "breed";
 
 const SENSITIVITY_SETTINGS: Record<Sensitivity, { minChangedPixels: number; minChangedRatio: number; pixelDiffThreshold: number }> = {
-  laag: { minChangedPixels: 150, minChangedRatio: 0.007, pixelDiffThreshold: 46 },
-  normaal: { minChangedPixels: 95, minChangedRatio: 0.0045, pixelDiffThreshold: 36 },
-  hoog: { minChangedPixels: 50, minChangedRatio: 0.0025, pixelDiffThreshold: 28 },
+  laag: { minChangedPixels: 105, minChangedRatio: 0.0045, pixelDiffThreshold: 38 },
+  normaal: { minChangedPixels: 60, minChangedRatio: 0.0025, pixelDiffThreshold: 30 },
+  hoog: { minChangedPixels: 25, minChangedRatio: 0.001, pixelDiffThreshold: 20 },
 };
 
 const ZONE_RADIUS: Record<DetectionZone, number> = {
-  smal: 0.08,
-  normaal: 0.14,
-  breed: 0.22,
+  smal: 0.11,
+  normaal: 0.20,
+  breed: 0.34,
 };
 
 export type MotionDetectionOptions = {

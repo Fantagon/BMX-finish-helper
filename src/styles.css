@@ -233,3 +233,17 @@ h2 { font-size: 1rem; margin-bottom: 8px; }
   .cameraShell { max-height: 39dvh; min-height: 185px; }
   .finishList li { min-height: 34px; padding: 6px 8px; }
 }
+
+.testButton {
+  flex: 1 1 auto;
+}
+
+.stackedOnSmall {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 420px) {
+  .stackedOnSmall .testButton {
+    width: 100%;
+  }
+}

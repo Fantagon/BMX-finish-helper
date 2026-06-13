@@ -1,4 +1,4 @@
-# BMX Finish Helper — v5 baanmodus
+# BMX Finish Helper — v5.1 baanmodus
 
 BMX Finish Helper is een jury-hulpmiddel voor BMX-finishpassages.
 
@@ -13,7 +13,7 @@ Deze versie bevat:
 - instelbare detectiezone;
 - debug-overlay voor detectiepunten en bewegingsboxen.
 
-## Belangrijke wijziging in v5
+## Belangrijke wijziging in v5.1
 
 Het rijnummer-veld is verwijderd uit de hoofdinterface.
 
@@ -64,3 +64,22 @@ Voor betere nauwkeurigheid zijn later nodig:
 - voldoende licht;
 - korte sluitertijd / weinig motion blur;
 - betrouwbare OCR of een ander nummerherkenningsmechanisme.
+
+
+## v5.1 fix
+
+Deze versie maakt live detectie minder streng. Een passage telt nu niet alleen bij een perfecte lijnkruising, maar ook bij duidelijke beweging in de finishzone. Daardoor werkt de app beter met schuine camera-opstelling, schaduw en wisselende bounding boxes.
+
+
+## v5.2 virtuele testpassage
+
+Deze versie bevat opnieuw een kleine testfunctie, maar zonder oude testmodus-interface. De knop **Virtuele testpassage** maakt direct een willekeurige finishpassage aan, bijvoorbeeld `#84` of `#501`, en toont kort een debug-punt bij de finishlijn.
+
+Doel van deze knop:
+
+- snel controleren of de lijst werkt;
+- controleren of items na 15 seconden verdwijnen;
+- testen zonder echte rider of beweging;
+- de live detectie ongemoeid laten.
+
+Live detecties blijven voorlopig **Onbekend** zolang OCR/nummerherkenning nog niet is toegevoegd.

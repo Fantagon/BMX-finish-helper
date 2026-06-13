@@ -1,8 +1,9 @@
 import type { FinishLine, FinishEvent, Point, RiderDetection, RiderTrack } from "../types";
 import { getRiderReferencePoint, hasCrossedFinishLine } from "../geometry/finishLine";
 
-const TRACK_MAX_AGE_MS = 1500;
-const MAX_MATCH_DISTANCE = 0.18;
+const TRACK_MAX_AGE_MS = 1200;
+const MAX_MATCH_DISTANCE = 0.28;
+const FINISH_TOUCH_DISTANCE = 0.13;
 
 export function updateRiderTracks(
   previousTracks: RiderTrack[],
@@ -18,7 +19,7 @@ export function updateRiderTracks(
     const existing = findBestTrack(nextTracks, detection, currentPoint);
 
     if (!existing) {
-      nextTracks.push({
+      const newTrack: RiderTrack = {
         id: detection.id,
         number: detection.number,
         confidence: detection.confidence,
@@ -28,7 +29,14 @@ export function updateRiderTracks(
         firstSeenAt: detection.timestamp,
         lastSeenAt: detection.timestamp,
         hasFinished: false,
-      });
+      };
+
+      if (finishLine && detectionTouchesFinishZone(detection, currentPoint, finishLine)) {
+        newTrack.hasFinished = true;
+        finishEvents.push(createFinishEvent(newTrack, now));
+      }
+
+      nextTracks.push(newTrack);
       continue;
     }
 
@@ -39,25 +47,59 @@ export function updateRiderTracks(
     existing.number = detection.number ?? existing.number;
     existing.confidence = detection.confidence ?? existing.confidence;
 
-    if (
+    const crossedLine = Boolean(
       finishLine &&
-      !existing.hasFinished &&
-      existing.previousPoint &&
-      hasCrossedFinishLine(existing.previousPoint, existing.currentPoint, finishLine)
-    ) {
+        existing.previousPoint &&
+        hasCrossedFinishLine(existing.previousPoint, existing.currentPoint, finishLine)
+    );
+
+    const touchesFinishZone = Boolean(
+      finishLine && detectionTouchesFinishZone(detection, existing.currentPoint, finishLine)
+    );
+
+    // Baanmodus v5.1:
+    // Een perfecte geometrische lijnkruising is in echt camerabeeld vaak te streng.
+    // Daarom telt de app nu ook duidelijke beweging in de finishzone als passage.
+    // Duplicaten worden verderop door mergeFinishEvents binnen 3 seconden onderdrukt.
+    if (finishLine && !existing.hasFinished && (crossedLine || touchesFinishZone)) {
       existing.hasFinished = true;
-      finishEvents.push({
-        id: crypto.randomUUID(),
-        trackId: existing.id,
-        number: existing.number,
-        confidence: existing.confidence,
-        crossedAt: now,
-        crossingPoint: existing.currentPoint,
-      });
+      finishEvents.push(createFinishEvent(existing, now));
     }
   }
 
   return { tracks: nextTracks, finishEvents };
+}
+
+function createFinishEvent(track: RiderTrack, now: number): FinishEvent {
+  return {
+    id: crypto.randomUUID(),
+    trackId: track.id,
+    number: track.number,
+    confidence: track.confidence,
+    crossedAt: now,
+    crossingPoint: track.currentPoint,
+  };
+}
+
+function detectionTouchesFinishZone(detection: RiderDetection, point: Point, line: FinishLine): boolean {
+  const box = detection.bbox;
+  const candidates: Point[] = [
+    point,
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+    { x: box.x, y: box.y },
+    { x: box.x + box.width, y: box.y },
+    { x: box.x, y: box.y + box.height },
+    { x: box.x + box.width, y: box.y + box.height },
+  ];
+
+  return candidates.some((candidate) => distanceToLine(candidate, line) <= FINISH_TOUCH_DISTANCE);
+}
+
+function distanceToLine(point: Point, line: FinishLine): number {
+  const dx = line.b.x - line.a.x;
+  const dy = line.b.y - line.a.y;
+  const length = Math.hypot(dx, dy) || 1;
+  return Math.abs((point.x - line.a.x) * dy - (point.y - line.a.y) * dx) / length;
 }
 
 function findBestTrack(
@@ -73,8 +115,6 @@ function findBestTrack(
     const distance = distanceBetween(track.currentPoint, point);
     const score = distance - (sameNumber ? 0.08 : 0);
 
-    // Simple v1 tracking: prefer same number if known, otherwise nearest point.
-    // Later this should be replaced by robust multi-object tracking.
     if (score < bestScore && (distance < MAX_MATCH_DISTANCE || sameNumber)) {
       best = track;
       bestScore = score;
