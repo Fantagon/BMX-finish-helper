@@ -1,11 +1,30 @@
-import type { RiderDetection } from "../types";
+import type { FinishLine, RiderDetection } from "../types";
 
-const SAMPLE_WIDTH = 96;
-const MIN_CHANGED_PIXELS = 70;
-const MIN_CHANGED_RATIO = 0.003;
-const PIXEL_DIFF_THRESHOLD = 34;
-const BBOX_PADDING = 0.035;
-const MIN_BOX_SIZE = 0.04;
+const SAMPLE_WIDTH = 112;
+const BBOX_PADDING = 0.03;
+const MIN_BOX_SIZE = 0.035;
+
+type Sensitivity = "laag" | "normaal" | "hoog";
+type DetectionZone = "smal" | "normaal" | "breed";
+
+const SENSITIVITY_SETTINGS: Record<Sensitivity, { minChangedPixels: number; minChangedRatio: number; pixelDiffThreshold: number }> = {
+  laag: { minChangedPixels: 150, minChangedRatio: 0.007, pixelDiffThreshold: 46 },
+  normaal: { minChangedPixels: 95, minChangedRatio: 0.0045, pixelDiffThreshold: 36 },
+  hoog: { minChangedPixels: 50, minChangedRatio: 0.0025, pixelDiffThreshold: 28 },
+};
+
+const ZONE_RADIUS: Record<DetectionZone, number> = {
+  smal: 0.08,
+  normaal: 0.14,
+  breed: 0.22,
+};
+
+export type MotionDetectionOptions = {
+  finishLine: FinishLine | null;
+  manualNumber?: string;
+  sensitivity: Sensitivity;
+  detectionZone: DetectionZone;
+};
 
 export type MotionDetectionState = {
   canvas: HTMLCanvasElement;
@@ -32,14 +51,14 @@ export function detectMotionFromVideo(
   video: HTMLVideoElement,
   state: MotionDetectionState,
   timestamp: number,
-  manualNumber?: string
+  options: MotionDetectionOptions
 ): RiderDetection[] {
   if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth === 0 || video.videoHeight === 0) {
     return [];
   }
 
   const width = SAMPLE_WIDTH;
-  const height = Math.max(54, Math.round((SAMPLE_WIDTH * video.videoHeight) / video.videoWidth));
+  const height = Math.max(63, Math.round((SAMPLE_WIDTH * video.videoHeight) / video.videoWidth));
 
   if (state.canvas.width !== width || state.canvas.height !== height) {
     state.canvas.width = width;
@@ -60,9 +79,12 @@ export function detectMotionFromVideo(
   const previous = state.previousGray;
   state.previousGray = gray;
 
-  if (!previous) {
+  if (!previous || !options.finishLine) {
     return [];
   }
+
+  const settings = SENSITIVITY_SETTINGS[options.sensitivity];
+  const zoneRadius = ZONE_RADIUS[options.detectionZone];
 
   let minX = width;
   let minY = height;
@@ -72,10 +94,19 @@ export function detectMotionFromVideo(
 
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
+      const nx = (x + 0.5) / width;
+      const ny = (y + 0.5) / height;
+
+      // Alleen beweging vlak rond de ingestelde finishlijn telt mee.
+      // Dit maakt de app op de baan rustiger: publiek, bomen of beweging ver weg tellen minder snel mee.
+      if (distanceToLine({ x: nx, y: ny }, options.finishLine) > zoneRadius) {
+        continue;
+      }
+
       const index = y * width + x;
       const diff = Math.abs(gray[index] - previous[index]);
 
-      if (diff > PIXEL_DIFF_THRESHOLD) {
+      if (diff > settings.pixelDiffThreshold) {
         changedPixels += 1;
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
@@ -87,7 +118,7 @@ export function detectMotionFromVideo(
 
   const changedRatio = changedPixels / (width * height);
 
-  if (changedPixels < MIN_CHANGED_PIXELS || changedRatio < MIN_CHANGED_RATIO) {
+  if (changedPixels < settings.minChangedPixels || changedRatio < settings.minChangedRatio) {
     return [];
   }
 
@@ -105,12 +136,19 @@ export function detectMotionFromVideo(
   return [
     {
       id: "live-motion-main",
-      number: manualNumber || undefined,
-      confidence: manualNumber ? 0.9 : undefined,
+      number: options.manualNumber || undefined,
+      confidence: options.manualNumber ? 0.9 : undefined,
       bbox: normalizedBox,
       timestamp,
     },
   ];
+}
+
+function distanceToLine(point: { x: number; y: number }, line: FinishLine): number {
+  const dx = line.b.x - line.a.x;
+  const dy = line.b.y - line.a.y;
+  const length = Math.hypot(dx, dy) || 1;
+  return Math.abs((point.x - line.a.x) * dy - (point.y - line.a.y) * dx) / length;
 }
 
 function clamp(value: number, min: number, max: number): number {
