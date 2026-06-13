@@ -1,70 +1,32 @@
-# BMX Finish Helper v6.2
+# BMX Finish Helper v7 - snapshots bij finishpassages
 
-Jury-hulpmiddel voor BMX-finishpassages met:
+Deze versie gebruikt de werkende live-detectie als basis en legt bij elke finishpassage automatisch een camerabeeld vast.
 
-- live camera-preview;
-- finishlijn instellen met twee punten;
-- live bewegingsdetectie rond de finishlijn;
-- recente finishpassages;
-- virtuele testpassage met willekeurig nummer;
-- experimentele OCR voor nummerherkenning.
+## Belangrijkste functies
 
-## Nieuw in v6.2
+- Live camerabeeld.
+- Finishlijn met twee punten instellen.
+- Bewegingsdetectie rond de finishlijn.
+- Bij elke finishpassage wordt direct een snapshot van de camera opgeslagen.
+- De app toont maximaal 8 terugkijkbeelden.
+- Nieuwe passages komen onderaan; bij meer dan 8 verdwijnt de oudste.
+- `Lijst wissen` wist de terugkijkbeelden.
+- OCR blijft experimenteel en optioneel. Als OCR niets vindt, blijft de passage `Onbekend`.
+- `Scan huidig beeld` heeft nu een time-out, zodat de app niet vast blijft hangen als OCR op de telefoon te lang duurt.
 
-De OCR is verbeterd zonder extra OCR-zone-instelling:
+## Gebruik op de baan
 
-- grotere crop rond de gedetecteerde beweging;
-- extra crops rond het midden en onder-midden van het beeld;
-- beeldvergroting voor OCR;
-- contrastverhoging;
-- threshold en inverted threshold pogingen;
-- alleen cijfers worden geaccepteerd;
-- OCR-status toont meer debuginformatie.
+1. Open de Vercel-link op je telefoon.
+2. Zet de telefoon stil op een statief.
+3. Stel de finishlijn in.
+4. Laat `Live detectie` aan.
+5. Laat een rider door de finishzone rijden.
+6. Controleer onder `Terugkijkbeelden` het opgeslagen camerabeeld.
 
-Als OCR niets bruikbaars vindt, blijft de passage `Onbekend`.
-Als OCR iets mogelijk vindt, toont de app bijvoorbeeld `#501?` met badge `OCR`.
-Het vraagteken betekent: onzeker, jury moet controleren.
+## Waarom snapshots?
 
-## Testadvies OCR
+Automatische OCR/nummerherkenning is bij BMX lastig door beweging, klein nummerbord, perspectief, motion blur en licht. Snapshots zijn betrouwbaarder als jury-hulpmiddel: de app bewaart het relevante moment, waarna de jury snel kan terugkijken.
 
-Gebruik voor tests:
+## Beperkingen
 
-- grote cijfers;
-- dikke zwarte stift;
-- wit papier of duidelijk nummerbord;
-- zo min mogelijk tegenlicht;
-- nummer zo recht mogelijk naar de camera;
-- telefoon stil op statief.
-
-OCR blijft experimenteel. De live finishdetectie is leidend; OCR is alleen een hulpmiddel om het nummerlabel te raden.
-
-## Upload naar Vercel
-
-Upload de inhoud van deze map naar GitHub.
-
-Belangrijk:
-
-- upload geen `package-lock.json`;
-- laat `.npmrc` staan;
-- Vercel build command: `npm run build`;
-- output directory: `dist`.
-
-
-## v6.2 - OCR los testen
-
-Nieuw in v6.2:
-
-- Knop **Scan huidig beeld**.
-- OCR kan nu los getest worden zonder dat er eerst een finishpassage nodig is.
-- De scan probeert het volledige camerabeeld en meerdere midden-crops.
-- De app toont OCR-debugtekst, zodat zichtbaar is wat OCR denkt te lezen.
-- Als de scan een nummer vindt, wordt er een test-finishpassage met dat OCR-nummer toegevoegd.
-
-Gebruik voor OCR-testen:
-
-1. Zet **OCR proberen** aan.
-2. Houd een groot, donker nummer stil en goed zichtbaar in beeld.
-3. Druk **Scan huidig beeld**.
-4. Kijk naar de OCR-status en open eventueel **OCR debugtekst**.
-
-Let op: OCR blijft experimenteel. De live-detectie blijft leidend; OCR is alleen een hulpmiddel om een mogelijk nummerlabel toe te voegen.
+Deze app is geen officiële fotofinish. De detectie is een hulpmiddel. De jury blijft leidend.
