@@ -4,6 +4,8 @@ export type OcrResult = {
   number?: string;
   confidence?: number;
   rawText: string;
+  candidates: string[];
+  attempts: number;
 };
 
 let workerPromise: Promise<any> | null = null;
@@ -13,20 +15,51 @@ export async function recognizeNumberFromVideo(
   bbox?: BoundingBox
 ): Promise<OcrResult> {
   if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth === 0 || video.videoHeight === 0) {
-    return { rawText: "" };
+    return { rawText: "", candidates: [], attempts: 0 };
   }
 
-  const image = makeOcrCrop(video, bbox);
+  const crops = makeOcrCrops(video, bbox);
   const worker = await getWorker();
-  const response = await worker.recognize(image);
-  const text = String(response?.data?.text ?? "");
-  const confidencePercent = Number(response?.data?.confidence ?? 0);
-  const number = extractLikelyBmxNumber(text);
+
+  const allCandidates: string[] = [];
+  const rawTexts: string[] = [];
+  let bestNumber: string | undefined;
+  let bestConfidence = 0;
+  let bestScore = 0;
+
+  for (const crop of crops) {
+    const response = await worker.recognize(crop.canvas);
+    const text = String(response?.data?.text ?? "");
+    const confidencePercent = Number(response?.data?.confidence ?? 0);
+    const candidates = extractLikelyBmxNumbers(text);
+
+    rawTexts.push(`${crop.name}: ${compactText(text) || "-"}`);
+    allCandidates.push(...candidates);
+
+    for (const candidate of candidates) {
+      const score = scoreNumber(candidate) + Math.max(0, confidencePercent / 100);
+      if (score > bestScore) {
+        bestScore = score;
+        bestNumber = candidate;
+        bestConfidence = confidencePercent;
+      }
+    }
+
+    // Stop early when OCR found a plausible 2- or 3-digit number with reasonable confidence.
+    // Single digits are allowed, but we do not stop early on them because BMX numbers are often 2-3 digits.
+    if (bestNumber && bestNumber.length >= 2 && bestConfidence >= 45) {
+      break;
+    }
+  }
+
+  const uniqueCandidates = Array.from(new Set(allCandidates)).sort((a, b) => scoreNumber(b) - scoreNumber(a));
 
   return {
-    number,
-    confidence: number ? Math.max(0.01, Math.min(0.99, confidencePercent / 100)) : undefined,
-    rawText: text,
+    number: bestNumber,
+    confidence: bestNumber ? Math.max(0.15, Math.min(0.92, bestConfidence / 100 || 0.45)) : undefined,
+    rawText: rawTexts.join(" | "),
+    candidates: uniqueCandidates,
+    attempts: crops.length,
   };
 }
 
@@ -40,7 +73,8 @@ async function getWorker(): Promise<any> {
       if (typeof worker.setParameters === "function") {
         await worker.setParameters({
           tessedit_char_whitelist: "0123456789",
-          tessedit_pageseg_mode: "7",
+          tessedit_pageseg_mode: "6",
+          classify_bln_numeric_mode: "1",
         });
       }
 
@@ -51,23 +85,54 @@ async function getWorker(): Promise<any> {
   return workerPromise;
 }
 
-function makeOcrCrop(video: HTMLVideoElement, bbox?: BoundingBox): HTMLCanvasElement {
+type CropCandidate = {
+  name: string;
+  box: BoundingBox;
+  mode: "threshold" | "inverted" | "contrast";
+};
+
+function makeOcrCrops(video: HTMLVideoElement, bbox?: BoundingBox): Array<{ name: string; canvas: HTMLCanvasElement }> {
+  const cropCandidates: CropCandidate[] = [];
+
+  if (bbox) {
+    cropCandidates.push(
+      { name: "beweging-groot", box: expandBox(bbox, 0.42), mode: "threshold" },
+      { name: "beweging-invert", box: expandBox(bbox, 0.42), mode: "inverted" },
+      { name: "beweging-extra", box: expandBox(bbox, 0.58), mode: "contrast" }
+    );
+  }
+
+  // Extra algemene crops. Bij BMX zit het nummerbord vaak in het midden/onder-midden van de rijder.
+  // Dit helpt wanneer de bewegingsbox vooral rond de finishlijn ligt en niet precies rond het nummerbord.
+  cropCandidates.push(
+    { name: "midden", box: { x: 0.18, y: 0.20, width: 0.64, height: 0.58 }, mode: "threshold" },
+    { name: "midden-invert", box: { x: 0.18, y: 0.20, width: 0.64, height: 0.58 }, mode: "inverted" },
+    { name: "onder-midden", box: { x: 0.22, y: 0.32, width: 0.56, height: 0.48 }, mode: "threshold" }
+  );
+
+  return cropCandidates.map((candidate) => ({
+    name: candidate.name,
+    canvas: makePreprocessedCrop(video, candidate.box, candidate.mode),
+  }));
+}
+
+function makePreprocessedCrop(
+  video: HTMLVideoElement,
+  crop: BoundingBox,
+  mode: CropCandidate["mode"]
+): HTMLCanvasElement {
   const videoWidth = video.videoWidth;
   const videoHeight = video.videoHeight;
 
-  // OCR is experimental: we crop around the detected motion blob. In later versions
-  // this should become a true number-plate crop based on bike/rider detection.
-  const crop = bbox
-    ? expandBox(bbox, 0.22)
-    : { x: 0.25, y: 0.25, width: 0.5, height: 0.5 };
+  const safeCrop = normalizeBox(crop);
+  const sx = Math.round(safeCrop.x * videoWidth);
+  const sy = Math.round(safeCrop.y * videoHeight);
+  const sw = Math.max(1, Math.round(safeCrop.width * videoWidth));
+  const sh = Math.max(1, Math.round(safeCrop.height * videoHeight));
 
-  const sx = Math.round(crop.x * videoWidth);
-  const sy = Math.round(crop.y * videoHeight);
-  const sw = Math.max(1, Math.round(crop.width * videoWidth));
-  const sh = Math.max(1, Math.round(crop.height * videoHeight));
-
-  const outputWidth = 520;
-  const outputHeight = Math.max(180, Math.round((outputWidth * sh) / sw));
+  // OCR works much better when small handwritten/printed numbers are enlarged first.
+  const outputWidth = 960;
+  const outputHeight = Math.max(280, Math.round((outputWidth * sh) / sw));
   const canvas = document.createElement("canvas");
   canvas.width = outputWidth;
   canvas.height = outputHeight;
@@ -78,15 +143,34 @@ function makeOcrCrop(video: HTMLVideoElement, bbox?: BoundingBox): HTMLCanvasEle
   context.imageSmoothingEnabled = true;
   context.drawImage(video, sx, sy, sw, sh, 0, 0, outputWidth, outputHeight);
 
-  // Simple contrast boost and grayscale conversion to give OCR a better chance.
   const image = context.getImageData(0, 0, outputWidth, outputHeight);
+  const histogram = new Array<number>(256).fill(0);
+
+  for (let index = 0; index < image.data.length; index += 4) {
+    const gray = Math.round(image.data[index] * 0.299 + image.data[index + 1] * 0.587 + image.data[index + 2] * 0.114);
+    histogram[gray] += 1;
+  }
+
+  const threshold = findOtsuThreshold(histogram);
+
   for (let index = 0; index < image.data.length; index += 4) {
     const gray = image.data[index] * 0.299 + image.data[index + 1] * 0.587 + image.data[index + 2] * 0.114;
-    const boosted = gray > 145 ? 255 : gray < 95 ? 0 : gray * 1.35;
-    image.data[index] = boosted;
-    image.data[index + 1] = boosted;
-    image.data[index + 2] = boosted;
+    const contrasted = clamp((gray - 128) * 1.9 + 128, 0, 255);
+    let value = contrasted;
+
+    if (mode === "threshold" || mode === "inverted") {
+      value = contrasted > threshold ? 255 : 0;
+    }
+
+    if (mode === "inverted") {
+      value = 255 - value;
+    }
+
+    image.data[index] = value;
+    image.data[index + 1] = value;
+    image.data[index + 2] = value;
   }
+
   context.putImageData(image, 0, 0);
 
   return canvas;
@@ -101,28 +185,75 @@ function expandBox(box: BoundingBox, padding: number): BoundingBox {
   return {
     x,
     y,
-    width: Math.max(0.04, right - x),
-    height: Math.max(0.04, bottom - y),
+    width: Math.max(0.08, right - x),
+    height: Math.max(0.08, bottom - y),
   };
 }
 
-function extractLikelyBmxNumber(text: string): string | undefined {
+function normalizeBox(box: BoundingBox): BoundingBox {
+  const x = clamp(box.x, 0, 0.98);
+  const y = clamp(box.y, 0, 0.98);
+  const right = clamp(box.x + box.width, x + 0.02, 1);
+  const bottom = clamp(box.y + box.height, y + 0.02, 1);
+
+  return {
+    x,
+    y,
+    width: right - x,
+    height: bottom - y,
+  };
+}
+
+function extractLikelyBmxNumbers(text: string): string[] {
   const groups = text.match(/\d{1,4}/g) ?? [];
   const cleaned = groups
     .map((value) => value.replace(/^0+(?=\d)/, ""))
-    .filter((value) => value.length >= 1 && value.length <= 4);
+    .filter((value) => value.length >= 1 && value.length <= 4)
+    .filter((value) => !/^0+$/.test(value));
 
-  if (cleaned.length === 0) return undefined;
-
-  // Prefer 2- or 3-digit race numbers over single digits when OCR returns multiple fragments.
-  return cleaned.sort((a, b) => scoreNumber(b) - scoreNumber(a))[0];
+  return Array.from(new Set(cleaned)).sort((a, b) => scoreNumber(b) - scoreNumber(a));
 }
 
 function scoreNumber(value: string): number {
-  if (value.length === 3) return 4;
-  if (value.length === 2) return 3;
-  if (value.length === 1) return 2;
+  if (value.length === 3) return 8;
+  if (value.length === 2) return 6;
+  if (value.length === 1) return 3;
   return 1;
+}
+
+function findOtsuThreshold(histogram: number[]): number {
+  const total = histogram.reduce((sum, count) => sum + count, 0);
+  let sum = 0;
+  for (let i = 0; i < 256; i += 1) sum += i * histogram[i];
+
+  let sumBackground = 0;
+  let weightBackground = 0;
+  let maxVariance = 0;
+  let threshold = 145;
+
+  for (let i = 0; i < 256; i += 1) {
+    weightBackground += histogram[i];
+    if (weightBackground === 0) continue;
+
+    const weightForeground = total - weightBackground;
+    if (weightForeground === 0) break;
+
+    sumBackground += i * histogram[i];
+    const meanBackground = sumBackground / weightBackground;
+    const meanForeground = (sum - sumBackground) / weightForeground;
+    const betweenVariance = weightBackground * weightForeground * (meanBackground - meanForeground) ** 2;
+
+    if (betweenVariance > maxVariance) {
+      maxVariance = betweenVariance;
+      threshold = i;
+    }
+  }
+
+  return threshold;
+}
+
+function compactText(text: string): string {
+  return text.replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
 function clamp(value: number, min: number, max: number): number {

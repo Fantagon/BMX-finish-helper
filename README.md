@@ -1,59 +1,50 @@
-# BMX Finish Helper v6
+# BMX Finish Helper v6.1
 
-Een mobiele webapp als jury-hulpmiddel voor BMX-finishpassages.
+Jury-hulpmiddel voor BMX-finishpassages met:
 
-## Wat werkt
+- live camera-preview;
+- finishlijn instellen met twee punten;
+- live bewegingsdetectie rond de finishlijn;
+- recente finishpassages;
+- virtuele testpassage met willekeurig nummer;
+- experimentele OCR voor nummerherkenning.
 
-- Camera-preview via browsercamera.
-- Finishlijn instellen met twee punten.
-- Finishlijn wordt opgeslagen in `localStorage`.
-- Live bewegingsdetectie rond de finishlijn.
-- Recente finishpassages blijven ongeveer 15 seconden zichtbaar.
-- Virtuele testpassage met willekeurig nummer.
-- Experimentele OCR om na een finishpassage een nummer te proberen lezen.
+## Nieuw in v6.1
 
-## Belangrijk over OCR
+De OCR is verbeterd zonder extra OCR-zone-instelling:
 
-OCR is in deze versie experimenteel. De app probeert na een gedetecteerde finishpassage een crop rond de bewegingsbox te lezen met Tesseract.js.
+- grotere crop rond de gedetecteerde beweging;
+- extra crops rond het midden en onder-midden van het beeld;
+- beeldvergroting voor OCR;
+- contrastverhoging;
+- threshold en inverted threshold pogingen;
+- alleen cijfers worden geaccepteerd;
+- OCR-status toont meer debuginformatie.
 
-Bij BMX is dit moeilijk door:
+Als OCR niets bruikbaars vindt, blijft de passage `Onbekend`.
+Als OCR iets mogelijk vindt, toont de app bijvoorbeeld `#501?` met badge `OCR`.
+Het vraagteken betekent: onzeker, jury moet controleren.
 
-- beweging;
-- kleine nummerbordjes;
-- schuine camera;
-- motion blur;
-- wisselend licht;
-- deels verborgen nummerborden.
+## Testadvies OCR
 
-Daarom geldt:
+Gebruik voor tests:
 
-- als OCR niets bruikbaars vindt, blijft de passage `Onbekend`;
-- als OCR iets denkt te zien, toont de app bijvoorbeeld `#323?` met badge `OCR`;
-- het vraagteken betekent: controle door jury blijft nodig.
+- grote cijfers;
+- dikke zwarte stift;
+- wit papier of duidelijk nummerbord;
+- zo min mogelijk tegenlicht;
+- nummer zo recht mogelijk naar de camera;
+- telefoon stil op statief.
 
-## Adviesinstellingen
+OCR blijft experimenteel. De live finishdetectie is leidend; OCR is alleen een hulpmiddel om het nummerlabel te raden.
 
-Start met:
+## Upload naar Vercel
 
-- Live detectie: aan
-- OCR proberen: uit
-- Gevoeligheid: normaal
-- Detectiezone: normaal
-- Debug: aan
+Upload de inhoud van deze map naar GitHub.
 
-Zet OCR pas aan nadat de basisdetectie goed werkt.
+Belangrijk:
 
-## Deploy
-
-Upload de inhoud van deze map naar GitHub en deploy via Vercel.
-
-Let op:
-
-- Upload `package-lock.json` niet.
-- Laat `.npmrc` wel staan.
-- Vercel build command: `npm run build`
-- Output directory: `dist`
-
-## Beperking
-
-Dit is geen officiële fotofinish. De app helpt de jury met een vermoedelijke volgorde en eventueel een onzeker OCR-nummer. Jurycontrole blijft leidend.
+- upload geen `package-lock.json`;
+- laat `.npmrc` staan;
+- Vercel build command: `npm run build`;
+- output directory: `dist`.

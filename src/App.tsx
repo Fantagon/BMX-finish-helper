@@ -104,7 +104,8 @@ export function App() {
         const result = await recognizeNumberFromVideo(videoRef.current, track?.bbox);
 
         if (!result.number) {
-          setOcrStatus("OCR: geen nummer gevonden");
+          const details = result.candidates.length > 0 ? ` (${result.candidates.join(", ")})` : "";
+          setOcrStatus(`OCR: geen nummer gevonden${details}`);
           continue;
         }
 
@@ -120,7 +121,7 @@ export function App() {
               : currentEvent
           )
         );
-        setOcrStatus(`OCR: mogelijk #${result.number}`);
+        setOcrStatus(`OCR: mogelijk #${result.number}${result.candidates.length > 1 ? ` / ${result.candidates.slice(1, 3).join(", ")}` : ""}`);
       } catch {
         setOcrStatus("OCR niet beschikbaar");
       }
