@@ -111,3 +111,28 @@ In testmodus gebruiken de knoppen daarna dit nummer:
 - **Voeg finish-event toe met testnummer** voegt direct een finishpassage met dat nummer toe.
 
 Belangrijk: de app herkent het nummerbord nog niet automatisch. Dit veld is bedoeld om de finishlijnlogica en juryweergave alvast realistischer op de baan te testen.
+
+## Versie 3: eenvoudige live bewegingsdetectie
+
+Deze versie voegt een schakelaar **Live detectie** toe.
+
+Als live detectie aan staat, vergelijkt de app opeenvolgende cameraframes. Bij voldoende beweging maakt de app een simpele bounding box en volgt die als rider-track. Als het referentiepunt van die track de ingestelde finishlijn kruist, wordt automatisch een finish-event aangemaakt.
+
+Het ingevulde **Testnummer** wordt voorlopig gebruikt als nummer voor deze automatische finishpassage. De app herkent het nummerbord dus nog niet automatisch.
+
+Belangrijke beperkingen van deze versie:
+
+- Camerabeweging kan foutieve detecties veroorzaken.
+- Schaduwen, publiek, andere fietsers of bewegende objecten kunnen foutieve detecties veroorzaken.
+- Er is nog geen echte rider-detectie.
+- Er is nog geen OCR of nummerbordherkenning.
+- De bewegingsdetectie is bedoeld als tussenstap om de finishlijn- en eventlogica live te testen.
+
+Praktische test:
+
+1. Zet de telefoon stil op een statief.
+2. Stel de finishlijn in.
+3. Vul een testnummer in, bijvoorbeeld `323`.
+4. Zet **Live detectie** aan.
+5. Laat één rider door het beeld en over de finishlijn rijden.
+6. Controleer of `#323` verschijnt onder **Recente finishpassages**.

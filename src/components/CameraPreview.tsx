@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 
 type CameraPreviewProps = {
   children?: React.ReactNode;
+  videoRef?: React.MutableRefObject<HTMLVideoElement | null>;
 };
 
-export function CameraPreview({ children }: CameraPreviewProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+export function CameraPreview({ children, videoRef: externalVideoRef }: CameraPreviewProps) {
+  const internalVideoRef = useRef<HTMLVideoElement | null>(null);
+  const videoRef = externalVideoRef ?? internalVideoRef;
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export function CameraPreview({ children }: CameraPreviewProps) {
       cancelled = true;
       stream?.getTracks().forEach((track) => track.stop());
     };
-  }, []);
+  }, [videoRef]);
 
   return (
     <div className="cameraShell">
