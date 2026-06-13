@@ -63,9 +63,14 @@ export function App() {
         setTracks((currentTracks) => {
           const result = updateRiderTracks(currentTracks, detections, finishLine, timestamp);
           if (result.finishEvents.length > 0) {
-            setFinishEvents((currentEvents) => mergeFinishEvents(currentEvents, result.finishEvents, timestamp));
+            const snapshotDataUrl = captureVideoSnapshot(videoRef.current);
+            const snapshotEvents = result.finishEvents.map((event) => ({
+              ...event,
+              snapshotDataUrl,
+            }));
+            setFinishEvents((currentEvents) => mergeFinishEvents(currentEvents, snapshotEvents, timestamp));
             if (ocrEnabled) {
-              void enrichFinishEventsWithOcr(result.finishEvents, result.tracks);
+              void enrichFinishEventsWithOcr(snapshotEvents, result.tracks);
             }
           }
           return result.tracks;
@@ -103,7 +108,7 @@ export function App() {
 
       try {
         setOcrStatus("OCR leest nummer...");
-        const result = await recognizeNumberFromVideo(videoRef.current, track?.bbox, { includeFullFrame: false });
+        const result = await recognizeNumberFromVideoWithTimeout(videoRef.current, track?.bbox, { includeFullFrame: false });
         showOcrResult(result, "finishpassage");
 
         if (!result.number) continue;
@@ -135,7 +140,7 @@ export function App() {
       setOcrStatus("OCR scant huidig beeld...");
       setOcrRawText("");
 
-      const result = await recognizeNumberFromVideo(videoRef.current, undefined, { includeFullFrame: true });
+      const result = await recognizeNumberFromVideoWithTimeout(videoRef.current, undefined, { includeFullFrame: true });
       showOcrResult(result, "handmatige scan");
 
       if (result.number) {
@@ -147,6 +152,7 @@ export function App() {
         const scanEvent: FinishEvent = {
           id: crypto.randomUUID(),
           trackId: `ocr-scan-${timestamp}`,
+          snapshotDataUrl: captureVideoSnapshot(videoRef.current),
           number: result.number,
           confidence: result.confidence,
           numberSource: "ocr",
@@ -214,6 +220,7 @@ export function App() {
       number,
       confidence: 0.99,
       numberSource: "virtual",
+      snapshotDataUrl: captureVideoSnapshot(videoRef.current),
       crossedAt: timestamp,
       crossingPoint,
     };
@@ -267,7 +274,7 @@ export function App() {
           />
           <span>
             <strong>Live detectie</strong>
-            <small>Detecteert beweging over de finishlijn. OCR kan daarna experimenteel een nummer proberen te lezen.</small>
+            <small>Detecteert beweging over de finishlijn en bewaart automatisch een camerabeeld.</small>
           </span>
         </label>
 
@@ -337,6 +344,38 @@ export function App() {
       </section>
     </main>
   );
+}
+
+async function recognizeNumberFromVideoWithTimeout(
+  video: HTMLVideoElement,
+  bbox: BoundingBox | undefined,
+  options: { includeFullFrame?: boolean }
+) {
+  const timeout = new Promise<never>((_, reject) => {
+    window.setTimeout(() => reject(new Error("OCR timeout")), 8000);
+  });
+
+  return Promise.race([recognizeNumberFromVideo(video, bbox, options), timeout]);
+}
+
+function captureVideoSnapshot(video: HTMLVideoElement | null): string | undefined {
+  if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth === 0 || video.videoHeight === 0) {
+    return undefined;
+  }
+
+  const sourceWidth = video.videoWidth;
+  const sourceHeight = video.videoHeight;
+  const targetWidth = 420;
+  const targetHeight = Math.max(220, Math.round((targetWidth * sourceHeight) / sourceWidth));
+  const canvas = document.createElement("canvas");
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+
+  const context = canvas.getContext("2d");
+  if (!context) return undefined;
+
+  context.drawImage(video, 0, 0, targetWidth, targetHeight);
+  return canvas.toDataURL("image/jpeg", 0.72);
 }
 
 function getPerpendicularTravelVector(line: { a: Point; b: Point }): Point {

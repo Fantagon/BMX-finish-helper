@@ -300,3 +300,65 @@ h2 { font-size: 1rem; margin-bottom: 8px; }
   word-break: break-word;
   line-height: 1.35;
 }
+
+/* v7 snapshot recorder */
+.listHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.compactMuted {
+  margin: -4px 0 0;
+  font-size: 0.76rem;
+}
+.snapshotList {
+  gap: 8px;
+}
+.snapshotList li.snapshotItem {
+  grid-template-columns: 1.4rem 78px 1fr;
+  min-height: 62px;
+  padding: 7px;
+  align-items: center;
+}
+.snapshotThumb {
+  display: block;
+  width: 78px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 9px;
+  border: 1px solid rgba(226, 232, 240, 0.22);
+  background: rgba(15, 23, 42, 0.9);
+}
+.snapshotPlaceholder {
+  display: grid;
+  place-items: center;
+  color: #94a3b8;
+  font-size: 0.62rem;
+  text-align: center;
+}
+.snapshotMeta {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.metaLine {
+  color: #cbd5e1;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.snapshotList .confidence,
+.snapshotList .age {
+  display: none;
+}
+
+@media (max-width: 420px) {
+  .snapshotList li.snapshotItem {
+    grid-template-columns: 1.2rem 72px 1fr;
+  }
+  .snapshotThumb {
+    width: 72px;
+    height: 46px;
+  }
+}
