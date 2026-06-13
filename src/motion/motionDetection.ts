@@ -21,7 +21,6 @@ const ZONE_RADIUS: Record<DetectionZone, number> = {
 
 export type MotionDetectionOptions = {
   finishLine: FinishLine | null;
-  manualNumber?: string;
   sensitivity: Sensitivity;
   detectionZone: DetectionZone;
 };
@@ -136,8 +135,8 @@ export function detectMotionFromVideo(
   return [
     {
       id: "live-motion-main",
-      number: options.manualNumber || undefined,
-      confidence: options.manualNumber ? 0.9 : undefined,
+      number: undefined,
+      confidence: undefined,
       bbox: normalizedBox,
       timestamp,
     },

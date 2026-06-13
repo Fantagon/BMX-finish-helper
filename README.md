@@ -1,67 +1,66 @@
-# BMX Finish Helper v4 - baanmodus
+# BMX Finish Helper — v5 baanmodus
 
-Deze versie is bedoeld als praktische baanmodus voor testen met een telefoon op statief.
+BMX Finish Helper is een jury-hulpmiddel voor BMX-finishpassages.
 
-## Wat is nieuw in v4
+Deze versie bevat:
 
-- De oude testmodusknop is verwijderd.
-- Simulatieknoppen zijn uit de normale interface gehaald.
-- Camera en recente finishpassages staan tegelijk bovenin beeld.
-- Live detectie staat centraal.
-- Detectie telt alleen beweging vlak rond de ingestelde finishlijn.
-- Gevoeligheid is instelbaar: laag, normaal, hoog.
-- Detectiezone is instelbaar: smal, normaal, breed.
-- De lijst kan worden gewist met `Lijst wissen`.
-- Debug-overlay kan aan of uit.
+- live camerabeeld;
+- finishlijn instellen met twee punten;
+- opslag van de finishlijn in localStorage;
+- automatische eenvoudige bewegingsdetectie rond de finishlijn;
+- recente finishpassages in beeld naast/onder de camera;
+- instelbare gevoeligheid;
+- instelbare detectiezone;
+- debug-overlay voor detectiepunten en bewegingsboxen.
+
+## Belangrijke wijziging in v5
+
+Het rijnummer-veld is verwijderd uit de hoofdinterface.
+
+De app doet in deze versie nog geen betrouwbare automatische nummerherkenning. Daarom worden live gedetecteerde finishpassages getoond als:
+
+```txt
+Onbekend
+```
+
+Dit is bewuster en minder verwarrend dan een handmatig rijnummer in de hoofdinterface.
+
+## OCR / nummerherkenning
+
+Automatische OCR is mogelijk, maar moet als experimentele functie worden toegevoegd en getest. Bij BMX is OCR lastig door:
+
+- hoge snelheid;
+- motion blur;
+- schuin camerabeeld;
+- klein nummerbord;
+- overlap door stuur/handen/voorwiel;
+- wisselende lichtomstandigheden;
+- lage browsercameraresolutie;
+- telefoons die beperkt rekenvermogen hebben tijdens live video.
+
+De aanbevolen vervolgstap is een aparte experimentele OCR-modus die alleen een crop rond de rider/finishzone analyseert en de uitslag pas toont als onzeker of voorlopig.
 
 ## Gebruik
 
-1. Open de app via de Vercel HTTPS-link.
+1. Open de app via HTTPS.
 2. Geef camera-toestemming.
-3. Zet de telefoon stil op een statief.
-4. Tik `Finishlijn instellen`.
-5. Tik punt A en punt B op de zichtbare finishlijn.
-6. Vul voorlopig het rijnummer handmatig in.
-7. Laat `Live detectie` aan staan.
-8. Laat een rider door de finishlijn rijden.
-9. Controleer `Recente finishpassages`.
+3. Tik op **Finishlijn instellen**.
+4. Tik punt A en punt B op de zichtbare finishlijn.
+5. Zet **Live detectie** aan.
+6. Laat een rider door beeld over de finishlijn rijden.
+7. Controleer **Recente finishpassages**.
 
-## Belangrijk
+## Beperkingen
 
-Deze versie doet nog geen echte automatische nummerherkenning. Het ingevulde rijnummer wordt gebruikt als label voor live gedetecteerde finishpassages.
+Deze app is geen officiële fotofinish. Door schuine camera-opstelling en perspectiefvertekening is de detectie een benadering. Jurycontrole blijft leidend.
 
-De bewegingsdetectie is eenvoudig. Schaduwen, camerabeweging, publiek, bladeren of andere bewegingen kunnen foutieve meldingen geven. Daarom zijn `Gevoeligheid` en `Detectiezone` toegevoegd.
+Voor betere nauwkeurigheid zijn later nodig:
 
-Aanbevolen startinstellingen:
-
-- Gevoeligheid: normaal
-- Detectiezone: normaal
-
-Als er te veel valse meldingen zijn:
-
-- Zet gevoeligheid op laag.
-- Zet detectiezone op smal.
-- Zorg dat de telefoon volledig stil staat.
-
-Als hij riders mist:
-
-- Zet gevoeligheid op hoog.
-- Zet detectiezone op breed.
-- Zorg voor beter licht en minder motion blur.
-
-## Geen officiële fotofinish
-
-Omdat de camera schuin van voren staat, kan perspectiefvertekening optreden. Een simpele 2D-lijn in het camerabeeld is een benadering.
-
-Voor betere nauwkeurigheid is later nodig:
-
-- perspectiefcalibratie / homography;
-- detectie van het voorwiel of voorste punt van de fiets;
-- echte rider-tracking over meerdere frames;
-- automatische nummerherkenning;
+- perspectiefkalibratie / homography;
+- voorwiel- of voorste-puntdetectie;
+- robuustere tracking;
 - hogere framerate;
 - goede plaatsing van de telefoon;
 - voldoende licht;
-- korte sluitertijd / weinig motion blur.
-
-De app helpt de jury met een vermoedelijke volgorde, maar jurycontrole blijft leidend.
+- korte sluitertijd / weinig motion blur;
+- betrouwbare OCR of een ander nummerherkenningsmechanisme.

@@ -14,16 +14,11 @@ const LIVE_DETECTION_INTERVAL_MS = 120;
 type Sensitivity = "laag" | "normaal" | "hoog";
 type DetectionZone = "smal" | "normaal" | "breed";
 
-function cleanManualNumber(value: string): string {
-  return value.replace(/[^0-9]/g, "").slice(0, 4);
-}
-
 export function App() {
   const { finishLine, setFinishLine, resetFinishLine } = useFinishLine();
   const [liveDetection, setLiveDetection] = useState(true);
   const [tracks, setTracks] = useState<RiderTrack[]>([]);
   const [finishEvents, setFinishEvents] = useState<FinishEvent[]>([]);
-  const [manualNumber, setManualNumber] = useState("501");
   const [sensitivity, setSensitivity] = useState<Sensitivity>("normaal");
   const [detectionZone, setDetectionZone] = useState<DetectionZone>("normaal");
   const [showDebug, setShowDebug] = useState(true);
@@ -54,7 +49,6 @@ export function App() {
         lastLiveDetectionAtRef.current = timestamp;
         const detections = detectMotionFromVideo(videoRef.current, motionStateRef.current, timestamp, {
           finishLine,
-          manualNumber: cleanManualNumber(manualNumber),
           sensitivity,
           detectionZone,
         });
@@ -73,7 +67,7 @@ export function App() {
 
     animationFrame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationFrame);
-  }, [finishLine, liveDetection, manualNumber, sensitivity, detectionZone]);
+  }, [finishLine, liveDetection, sensitivity, detectionZone]);
 
   const recentCrossings = useMemo(
     () => finishEvents.filter((event) => now - event.crossedAt < 1000),
@@ -122,17 +116,6 @@ export function App() {
       </section>
 
       <section className="controlsCard compactControls">
-        <label className="manualNumberField compactNumberField">
-          <span>Rijnummer</span>
-          <input
-            inputMode="numeric"
-            pattern="[0-9]*"
-            placeholder="bijv. 501"
-            value={manualNumber}
-            onChange={(event) => setManualNumber(cleanManualNumber(event.target.value))}
-          />
-        </label>
-
         <label className={`liveDetectionToggle compactToggle ${liveDetection ? "active" : ""}`}>
           <input
             type="checkbox"
@@ -141,7 +124,7 @@ export function App() {
           />
           <span>
             <strong>Live detectie</strong>
-            <small>Gebruikt voorlopig rijnummer #{cleanManualNumber(manualNumber) || "onbekend"}.</small>
+            <small>Detecteert beweging over de finishlijn. Nummer blijft voorlopig Onbekend.</small>
           </span>
         </label>
 
