@@ -6,7 +6,6 @@ import { LiveDebugOverlay } from "./components/LiveDebugOverlay";
 import { mergeFinishEvents } from "./finish/finishEvents";
 import { useFinishLine } from "./hooks/useFinishLine";
 import { createMotionDetectionState, detectMotionFromVideo, resetMotionDetectionState } from "./motion/motionDetection";
-import { recognizeNumberFromVideo } from "./ocr/numberOcr";
 import { updateRiderTracks } from "./tracking/riderTracking";
 import type { BoundingBox, FinishEvent, Point, RiderTrack } from "./types";
 
@@ -24,15 +23,10 @@ export function App() {
   const [sensitivity, setSensitivity] = useState<Sensitivity>("normaal");
   const [detectionZone, setDetectionZone] = useState<DetectionZone>("normaal");
   const [showDebug, setShowDebug] = useState(true);
-  const [ocrEnabled, setOcrEnabled] = useState(false);
-  const [ocrStatus, setOcrStatus] = useState("OCR uit");
-  const [ocrRawText, setOcrRawText] = useState("");
-  const [isManualScanRunning, setIsManualScanRunning] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const motionStateRef = useRef(createMotionDetectionState());
   const lastLiveDetectionAtRef = useRef(0);
-  const ocrProcessedEventIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     resetMotionDetectionState(motionStateRef.current);
@@ -69,9 +63,6 @@ export function App() {
               snapshotDataUrl,
             }));
             setFinishEvents((currentEvents) => mergeFinishEvents(currentEvents, snapshotEvents, timestamp));
-            if (ocrEnabled) {
-              void enrichFinishEventsWithOcr(snapshotEvents, result.tracks);
-            }
           }
           return result.tracks;
         });
@@ -82,7 +73,7 @@ export function App() {
 
     animationFrame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationFrame);
-  }, [finishLine, liveDetection, sensitivity, detectionZone, ocrEnabled]);
+  }, [finishLine, liveDetection, sensitivity, detectionZone]);
 
   const recentCrossings = useMemo(
     () => finishEvents.filter((event) => now - event.crossedAt < 1000),
@@ -92,92 +83,7 @@ export function App() {
   function clearRace() {
     setTracks([]);
     setFinishEvents([]);
-    setOcrRawText("");
-    ocrProcessedEventIdsRef.current.clear();
     resetMotionDetectionState(motionStateRef.current);
-  }
-
-  async function enrichFinishEventsWithOcr(events: FinishEvent[], currentTracks: RiderTrack[]) {
-    if (!ocrEnabled || !videoRef.current) return;
-
-    for (const event of events) {
-      if (ocrProcessedEventIdsRef.current.has(event.id)) continue;
-      ocrProcessedEventIdsRef.current.add(event.id);
-
-      const track = currentTracks.find((candidate) => candidate.id === event.trackId);
-
-      try {
-        setOcrStatus("OCR leest nummer...");
-        const result = await recognizeNumberFromVideoWithTimeout(videoRef.current, track?.bbox, { includeFullFrame: false });
-        showOcrResult(result, "finishpassage");
-
-        if (!result.number) continue;
-
-        setFinishEvents((currentEvents) =>
-          currentEvents.map((currentEvent) =>
-            currentEvent.id === event.id
-              ? {
-                  ...currentEvent,
-                  number: result.number,
-                  confidence: result.confidence,
-                  numberSource: "ocr",
-                }
-              : currentEvent
-          )
-        );
-      } catch {
-        setOcrStatus("OCR niet beschikbaar");
-      }
-    }
-  }
-
-  async function scanCurrentFrame() {
-    if (!videoRef.current || isManualScanRunning) return;
-
-    try {
-      setIsManualScanRunning(true);
-      setOcrEnabled(true);
-      setOcrStatus("OCR scant huidig beeld...");
-      setOcrRawText("");
-
-      const result = await recognizeNumberFromVideoWithTimeout(videoRef.current, undefined, { includeFullFrame: true });
-      showOcrResult(result, "handmatige scan");
-
-      if (result.number) {
-        const timestamp = Date.now();
-        const crossingPoint = finishLine
-          ? clampPoint({ x: (finishLine.a.x + finishLine.b.x) / 2, y: (finishLine.a.y + finishLine.b.y) / 2 })
-          : { x: 0.5, y: 0.55 };
-
-        const scanEvent: FinishEvent = {
-          id: crypto.randomUUID(),
-          trackId: `ocr-scan-${timestamp}`,
-          snapshotDataUrl: captureVideoSnapshot(videoRef.current),
-          number: result.number,
-          confidence: result.confidence,
-          numberSource: "ocr",
-          crossedAt: timestamp,
-          crossingPoint,
-        };
-
-        setFinishEvents((current) => mergeFinishEvents(current, [scanEvent], timestamp));
-      }
-    } catch {
-      setOcrStatus("OCR niet beschikbaar");
-    } finally {
-      setIsManualScanRunning(false);
-    }
-  }
-
-  function showOcrResult(result: { number?: string; rawText: string; candidates: string[]; attempts: number }, source: string) {
-    const candidatesText = result.candidates.length > 0 ? result.candidates.join(", ") : "geen";
-    setOcrRawText(result.rawText || "Geen OCR-tekst teruggekregen.");
-
-    if (result.number) {
-      setOcrStatus(`OCR ${source}: mogelijk #${result.number} | kandidaten: ${candidatesText}`);
-    } else {
-      setOcrStatus(`OCR ${source}: geen nummer gevonden | kandidaten: ${candidatesText}`);
-    }
   }
 
   function runVirtualTestPassage() {
@@ -278,33 +184,6 @@ export function App() {
           </span>
         </label>
 
-        <label className={`liveDetectionToggle compactToggle ${ocrEnabled ? "active" : ""}`}>
-          <input
-            type="checkbox"
-            checked={ocrEnabled}
-            onChange={(event) => {
-              setOcrEnabled(event.target.checked);
-              setOcrStatus(event.target.checked ? "OCR klaar" : "OCR uit");
-              if (!event.target.checked) setOcrRawText("");
-            }}
-          />
-          <span>
-            <strong>OCR proberen</strong>
-            <small>Experimenteel. Bij twijfel blijft de passage Onbekend of krijgt het nummer een vraagteken.</small>
-          </span>
-        </label>
-
-        <button className="primaryButton scanButton" onClick={scanCurrentFrame} type="button" disabled={isManualScanRunning}>
-          {isManualScanRunning ? "Scant beeld..." : "Scan huidig beeld"}
-        </button>
-
-        <div className="ocrStatus">{ocrStatus}</div>
-        {ocrRawText && (
-          <details className="ocrDetails">
-            <summary>OCR debugtekst</summary>
-            <p>{ocrRawText}</p>
-          </details>
-        )}
 
         <div className="settingsGrid">
           <label>
@@ -346,18 +225,6 @@ export function App() {
   );
 }
 
-async function recognizeNumberFromVideoWithTimeout(
-  video: HTMLVideoElement,
-  bbox: BoundingBox | undefined,
-  options: { includeFullFrame?: boolean }
-) {
-  const timeout = new Promise<never>((_, reject) => {
-    window.setTimeout(() => reject(new Error("OCR timeout")), 8000);
-  });
-
-  return Promise.race([recognizeNumberFromVideo(video, bbox, options), timeout]);
-}
-
 function captureVideoSnapshot(video: HTMLVideoElement | null): string | undefined {
   if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth === 0 || video.videoHeight === 0) {
     return undefined;
@@ -365,8 +232,8 @@ function captureVideoSnapshot(video: HTMLVideoElement | null): string | undefine
 
   const sourceWidth = video.videoWidth;
   const sourceHeight = video.videoHeight;
-  const targetWidth = 420;
-  const targetHeight = Math.max(220, Math.round((targetWidth * sourceHeight) / sourceWidth));
+  const targetWidth = 960;
+  const targetHeight = Math.max(540, Math.round((targetWidth * sourceHeight) / sourceWidth));
   const canvas = document.createElement("canvas");
   canvas.width = targetWidth;
   canvas.height = targetHeight;
@@ -375,7 +242,7 @@ function captureVideoSnapshot(video: HTMLVideoElement | null): string | undefine
   if (!context) return undefined;
 
   context.drawImage(video, 0, 0, targetWidth, targetHeight);
-  return canvas.toDataURL("image/jpeg", 0.72);
+  return canvas.toDataURL("image/jpeg", 0.88);
 }
 
 function getPerpendicularTravelVector(line: { a: Point; b: Point }): Point {

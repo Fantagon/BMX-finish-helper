@@ -362,3 +362,47 @@ h2 { font-size: 1rem; margin-bottom: 8px; }
     height: 46px;
   }
 }
+
+
+/* v8: OCR verwijderd, snapshots groot voor jury-terugkijken */
+.largeSnapshotListCard {
+  padding: 12px;
+}
+.largeSnapshotList {
+  gap: 12px;
+}
+.largeSnapshotList li.largeSnapshotItem {
+  display: block;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(30, 41, 59, 0.92);
+}
+.snapshotTopLine {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.snapshotTopLine .number {
+  font-size: 1.05rem;
+}
+.largeSnapshotImage {
+  width: 100%;
+  height: clamp(170px, 34dvh, 330px);
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid rgba(226, 232, 240, 0.28);
+  background: rgba(15, 23, 42, 0.9);
+}
+.largeSnapshotImage.snapshotPlaceholder {
+  display: grid;
+  place-items: center;
+  color: #94a3b8;
+}
+
+@media (min-width: 760px) {
+  .largeSnapshotImage {
+    height: clamp(190px, 28dvh, 360px);
+  }
+}
