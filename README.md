@@ -41,3 +41,15 @@ Begin met:
 
 Als de app rijders mist: zet gevoeligheid hoger of detectiezone breder.
 Als de app te snel valse meldingen geeft: zet gevoeligheid lager of detectiezone smaller.
+
+
+## v8.1
+
+- Terugkijkbeelden zijn nu een horizontaal scrollbare strip.
+- De snapshots blijven groot genoeg voor jurycontrole.
+- De bedieningsknoppen blijven beter bereikbaar omdat de snapshots niet meer verticaal onder elkaar staan.
+
+
+## v8.2
+
+De terugkijkbeelden staan in een horizontale strip en scrollen automatisch naar de nieuwste finishpassage, zodat de laatste snapshot direct zichtbaar blijft.
