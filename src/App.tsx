@@ -6,6 +6,7 @@ import { LiveDebugOverlay } from "./components/LiveDebugOverlay";
 import { mergeFinishEvents } from "./finish/finishEvents";
 import { useFinishLine } from "./hooks/useFinishLine";
 import { createMotionDetectionState, detectMotionFromVideo, resetMotionDetectionState } from "./motion/motionDetection";
+import { recognizeNumberFromVideo } from "./ocr/numberOcr";
 import { updateRiderTracks } from "./tracking/riderTracking";
 import type { BoundingBox, FinishEvent, Point, RiderTrack } from "./types";
 
@@ -23,10 +24,13 @@ export function App() {
   const [sensitivity, setSensitivity] = useState<Sensitivity>("normaal");
   const [detectionZone, setDetectionZone] = useState<DetectionZone>("normaal");
   const [showDebug, setShowDebug] = useState(true);
+  const [ocrEnabled, setOcrEnabled] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState("OCR uit");
   const [now, setNow] = useState(() => Date.now());
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const motionStateRef = useRef(createMotionDetectionState());
   const lastLiveDetectionAtRef = useRef(0);
+  const ocrProcessedEventIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     resetMotionDetectionState(motionStateRef.current);
@@ -58,6 +62,9 @@ export function App() {
           const result = updateRiderTracks(currentTracks, detections, finishLine, timestamp);
           if (result.finishEvents.length > 0) {
             setFinishEvents((currentEvents) => mergeFinishEvents(currentEvents, result.finishEvents, timestamp));
+            if (ocrEnabled) {
+              void enrichFinishEventsWithOcr(result.finishEvents, result.tracks);
+            }
           }
           return result.tracks;
         });
@@ -68,7 +75,7 @@ export function App() {
 
     animationFrame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationFrame);
-  }, [finishLine, liveDetection, sensitivity, detectionZone]);
+  }, [finishLine, liveDetection, sensitivity, detectionZone, ocrEnabled]);
 
   const recentCrossings = useMemo(
     () => finishEvents.filter((event) => now - event.crossedAt < 1000),
@@ -78,7 +85,46 @@ export function App() {
   function clearRace() {
     setTracks([]);
     setFinishEvents([]);
+    ocrProcessedEventIdsRef.current.clear();
     resetMotionDetectionState(motionStateRef.current);
+  }
+
+
+  async function enrichFinishEventsWithOcr(events: FinishEvent[], currentTracks: RiderTrack[]) {
+    if (!ocrEnabled || !videoRef.current) return;
+
+    for (const event of events) {
+      if (ocrProcessedEventIdsRef.current.has(event.id)) continue;
+      ocrProcessedEventIdsRef.current.add(event.id);
+
+      const track = currentTracks.find((candidate) => candidate.id === event.trackId);
+
+      try {
+        setOcrStatus("OCR leest nummer...");
+        const result = await recognizeNumberFromVideo(videoRef.current, track?.bbox);
+
+        if (!result.number) {
+          setOcrStatus("OCR: geen nummer gevonden");
+          continue;
+        }
+
+        setFinishEvents((currentEvents) =>
+          currentEvents.map((currentEvent) =>
+            currentEvent.id === event.id
+              ? {
+                  ...currentEvent,
+                  number: result.number,
+                  confidence: result.confidence,
+                  numberSource: "ocr",
+                }
+              : currentEvent
+          )
+        );
+        setOcrStatus(`OCR: mogelijk #${result.number}`);
+      } catch {
+        setOcrStatus("OCR niet beschikbaar");
+      }
+    }
   }
 
 
@@ -121,6 +167,7 @@ export function App() {
       trackId,
       number,
       confidence: 0.99,
+      numberSource: "virtual",
       crossedAt: timestamp,
       crossingPoint,
     };
@@ -175,9 +222,26 @@ export function App() {
           />
           <span>
             <strong>Live detectie</strong>
-            <small>Detecteert beweging over de finishlijn. Nummer blijft voorlopig Onbekend.</small>
+            <small>Detecteert beweging over de finishlijn. OCR kan daarna experimenteel een nummer proberen te lezen.</small>
           </span>
         </label>
+
+        <label className={`liveDetectionToggle compactToggle ${ocrEnabled ? "active" : ""}`}>
+          <input
+            type="checkbox"
+            checked={ocrEnabled}
+            onChange={(event) => {
+              setOcrEnabled(event.target.checked);
+              setOcrStatus(event.target.checked ? "OCR klaar" : "OCR uit");
+            }}
+          />
+          <span>
+            <strong>OCR proberen</strong>
+            <small>Experimenteel. Bij twijfel blijft de passage Onbekend of krijgt het nummer een vraagteken.</small>
+          </span>
+        </label>
+
+        <div className="ocrStatus">{ocrStatus}</div>
 
         <div className="settingsGrid">
           <label>

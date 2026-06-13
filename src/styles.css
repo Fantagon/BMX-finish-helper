@@ -247,3 +247,26 @@ h2 { font-size: 1rem; margin-bottom: 8px; }
     width: 100%;
   }
 }
+
+.ocrBadge {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.18);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #bae6fd;
+  font-size: 0.58rem;
+  font-weight: 900;
+  vertical-align: middle;
+}
+
+.ocrStatus {
+  padding: 8px 10px;
+  border-radius: 13px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #cbd5e1;
+  font-size: 0.84rem;
+  font-weight: 800;
+}

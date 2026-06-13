@@ -18,7 +18,10 @@ export function FinishPassageList({ events, now }: FinishPassageListProps) {
             return (
               <li key={event.id}>
                 <span className="rank">{index + 1}.</span>
-                <span className="number">{event.number ? `#${event.number}` : "Onbekend"}</span>
+                <span className="number">
+                  {event.number ? `#${event.number}${event.numberSource === "ocr" ? "?" : ""}` : "Onbekend"}
+                  {event.numberSource === "ocr" && <small className="ocrBadge">OCR</small>}
+                </span>
                 <span className="confidence">
                   {typeof event.confidence === "number" ? `${Math.round(event.confidence * 100)}%` : "?"}
                 </span>

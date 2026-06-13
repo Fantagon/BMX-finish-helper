@@ -1,85 +1,59 @@
-# BMX Finish Helper — v5.1 baanmodus
+# BMX Finish Helper v6
 
-BMX Finish Helper is een jury-hulpmiddel voor BMX-finishpassages.
+Een mobiele webapp als jury-hulpmiddel voor BMX-finishpassages.
 
-Deze versie bevat:
+## Wat werkt
 
-- live camerabeeld;
-- finishlijn instellen met twee punten;
-- opslag van de finishlijn in localStorage;
-- automatische eenvoudige bewegingsdetectie rond de finishlijn;
-- recente finishpassages in beeld naast/onder de camera;
-- instelbare gevoeligheid;
-- instelbare detectiezone;
-- debug-overlay voor detectiepunten en bewegingsboxen.
+- Camera-preview via browsercamera.
+- Finishlijn instellen met twee punten.
+- Finishlijn wordt opgeslagen in `localStorage`.
+- Live bewegingsdetectie rond de finishlijn.
+- Recente finishpassages blijven ongeveer 15 seconden zichtbaar.
+- Virtuele testpassage met willekeurig nummer.
+- Experimentele OCR om na een finishpassage een nummer te proberen lezen.
 
-## Belangrijke wijziging in v5.1
+## Belangrijk over OCR
 
-Het rijnummer-veld is verwijderd uit de hoofdinterface.
+OCR is in deze versie experimenteel. De app probeert na een gedetecteerde finishpassage een crop rond de bewegingsbox te lezen met Tesseract.js.
 
-De app doet in deze versie nog geen betrouwbare automatische nummerherkenning. Daarom worden live gedetecteerde finishpassages getoond als:
+Bij BMX is dit moeilijk door:
 
-```txt
-Onbekend
-```
-
-Dit is bewuster en minder verwarrend dan een handmatig rijnummer in de hoofdinterface.
-
-## OCR / nummerherkenning
-
-Automatische OCR is mogelijk, maar moet als experimentele functie worden toegevoegd en getest. Bij BMX is OCR lastig door:
-
-- hoge snelheid;
+- beweging;
+- kleine nummerbordjes;
+- schuine camera;
 - motion blur;
-- schuin camerabeeld;
-- klein nummerbord;
-- overlap door stuur/handen/voorwiel;
-- wisselende lichtomstandigheden;
-- lage browsercameraresolutie;
-- telefoons die beperkt rekenvermogen hebben tijdens live video.
+- wisselend licht;
+- deels verborgen nummerborden.
 
-De aanbevolen vervolgstap is een aparte experimentele OCR-modus die alleen een crop rond de rider/finishzone analyseert en de uitslag pas toont als onzeker of voorlopig.
+Daarom geldt:
 
-## Gebruik
+- als OCR niets bruikbaars vindt, blijft de passage `Onbekend`;
+- als OCR iets denkt te zien, toont de app bijvoorbeeld `#323?` met badge `OCR`;
+- het vraagteken betekent: controle door jury blijft nodig.
 
-1. Open de app via HTTPS.
-2. Geef camera-toestemming.
-3. Tik op **Finishlijn instellen**.
-4. Tik punt A en punt B op de zichtbare finishlijn.
-5. Zet **Live detectie** aan.
-6. Laat een rider door beeld over de finishlijn rijden.
-7. Controleer **Recente finishpassages**.
+## Adviesinstellingen
 
-## Beperkingen
+Start met:
 
-Deze app is geen officiële fotofinish. Door schuine camera-opstelling en perspectiefvertekening is de detectie een benadering. Jurycontrole blijft leidend.
+- Live detectie: aan
+- OCR proberen: uit
+- Gevoeligheid: normaal
+- Detectiezone: normaal
+- Debug: aan
 
-Voor betere nauwkeurigheid zijn later nodig:
+Zet OCR pas aan nadat de basisdetectie goed werkt.
 
-- perspectiefkalibratie / homography;
-- voorwiel- of voorste-puntdetectie;
-- robuustere tracking;
-- hogere framerate;
-- goede plaatsing van de telefoon;
-- voldoende licht;
-- korte sluitertijd / weinig motion blur;
-- betrouwbare OCR of een ander nummerherkenningsmechanisme.
+## Deploy
 
+Upload de inhoud van deze map naar GitHub en deploy via Vercel.
 
-## v5.1 fix
+Let op:
 
-Deze versie maakt live detectie minder streng. Een passage telt nu niet alleen bij een perfecte lijnkruising, maar ook bij duidelijke beweging in de finishzone. Daardoor werkt de app beter met schuine camera-opstelling, schaduw en wisselende bounding boxes.
+- Upload `package-lock.json` niet.
+- Laat `.npmrc` wel staan.
+- Vercel build command: `npm run build`
+- Output directory: `dist`
 
+## Beperking
 
-## v5.2 virtuele testpassage
-
-Deze versie bevat opnieuw een kleine testfunctie, maar zonder oude testmodus-interface. De knop **Virtuele testpassage** maakt direct een willekeurige finishpassage aan, bijvoorbeeld `#84` of `#501`, en toont kort een debug-punt bij de finishlijn.
-
-Doel van deze knop:
-
-- snel controleren of de lijst werkt;
-- controleren of items na 15 seconden verdwijnen;
-- testen zonder echte rider of beweging;
-- de live detectie ongemoeid laten.
-
-Live detecties blijven voorlopig **Onbekend** zolang OCR/nummerherkenning nog niet is toegevoegd.
+Dit is geen officiële fotofinish. De app helpt de jury met een vermoedelijke volgorde en eventueel een onzeker OCR-nummer. Jurycontrole blijft leidend.

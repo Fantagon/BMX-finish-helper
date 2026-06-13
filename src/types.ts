@@ -40,6 +40,7 @@ export type FinishEvent = {
   trackId: string;
   number?: string;
   confidence?: number;
+  numberSource?: "ocr" | "virtual" | "manual";
   crossedAt: number;
   crossingPoint: Point;
 };
