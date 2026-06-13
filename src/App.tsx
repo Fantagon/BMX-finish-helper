@@ -9,17 +9,28 @@ import { advanceSimulatedRiders, createSimulatedRider, simulatedRidersToDetectio
 import { updateRiderTracks } from "./tracking/riderTracking";
 import type { FinishEvent, RiderTrack, SimulatedRider } from "./types";
 
+const RANDOM_TEST_NUMBERS = ["84", "17", "203", "9", "51", "116"];
+
+function cleanManualNumber(value: string): string {
+  return value.replace(/[^0-9]/g, "").slice(0, 4);
+}
+
 export function App() {
   const { finishLine, setFinishLine, resetFinishLine } = useFinishLine();
   const [testMode, setTestMode] = useState(true);
   const [tracks, setTracks] = useState<RiderTrack[]>([]);
   const [finishEvents, setFinishEvents] = useState<FinishEvent[]>([]);
   const [simulatedRiders, setSimulatedRiders] = useState<SimulatedRider[]>([]);
+  const [manualNumber, setManualNumber] = useState("501");
   const [now, setNow] = useState(() => Date.now());
   const riderIndexRef = useRef(0);
 
   function addSimulatedRider() {
-    setSimulatedRiders((current) => [...current, createSimulatedRider(riderIndexRef.current++)]);
+    const number = cleanManualNumber(manualNumber) || undefined;
+    setSimulatedRiders((current) => [
+      ...current,
+      createSimulatedRider(riderIndexRef.current++, number),
+    ]);
   }
 
   function addRandomFinishEvent() {
@@ -27,7 +38,7 @@ export function App() {
     const event: FinishEvent = {
       id: crypto.randomUUID(),
       trackId: crypto.randomUUID(),
-      number: String([84, 17, 203, 9, 51][Math.floor(Math.random() * 5)]),
+      number: cleanManualNumber(manualNumber) || RANDOM_TEST_NUMBERS[Math.floor(Math.random() * RANDOM_TEST_NUMBERS.length)],
       confidence: 0.8 + Math.random() * 0.18,
       crossedAt: timestamp,
       crossingPoint: { x: 0.5, y: 0.5 },
@@ -111,11 +122,25 @@ export function App() {
       </section>
 
       <section className="controlsCard">
+        <label className="manualNumberField">
+          <span>Testnummer</span>
+          <input
+            inputMode="numeric"
+            pattern="[0-9]*"
+            placeholder="bijv. 501"
+            value={manualNumber}
+            onChange={(event) => setManualNumber(cleanManualNumber(event.target.value))}
+          />
+        </label>
+        <p className="controlHelp">
+          In deze versie wordt het nummer nog niet automatisch herkend. Gebruik dit veld om
+          finishpassages met een gekozen nummer te testen.
+        </p>
         <button className="primaryButton wide" onClick={addSimulatedRider} type="button">
-          Simuleer rider over finishlijn
+          Simuleer #{cleanManualNumber(manualNumber) || "onbekend"} over finishlijn
         </button>
         <button className="secondaryButton wide" onClick={addRandomFinishEvent} type="button">
-          Willekeurig finish-event
+          Voeg finish-event toe met testnummer
         </button>
       </section>
 

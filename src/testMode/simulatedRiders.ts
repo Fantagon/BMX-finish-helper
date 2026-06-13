@@ -1,12 +1,12 @@
 import type { Point, RiderDetection, SimulatedRider } from "../types";
 
-export function createSimulatedRider(index: number): SimulatedRider {
+export function createSimulatedRider(index: number, manualNumber?: string): SimulatedRider {
   const id = crypto.randomUUID();
   const laneOffset = (index % 5) * 0.09;
 
   return {
     id,
-    number: String([84, 17, 203, 9, 51, 116][index % 6]),
+    number: manualNumber || String([84, 17, 203, 9, 51, 116][index % 6]),
     confidence: 0.86 + Math.random() * 0.12,
     start: { x: 0.18 + laneOffset, y: 0.12 },
     end: { x: 0.38 + laneOffset, y: 0.94 },

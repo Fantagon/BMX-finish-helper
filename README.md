@@ -99,3 +99,15 @@ export type RiderDetection = {
 ```
 
 Alle coördinaten zijn genormaliseerd van 0 tot 1.
+
+
+## Versie 2: handmatig testnummer
+
+Deze versie bevat een veld **Testnummer**. Vul hier bijvoorbeeld `501` in.
+
+In testmodus gebruiken de knoppen daarna dit nummer:
+
+- **Simuleer #501 over finishlijn** laat een gesimuleerde rider met dat nummer over de finishlijn bewegen.
+- **Voeg finish-event toe met testnummer** voegt direct een finishpassage met dat nummer toe.
+
+Belangrijk: de app herkent het nummerbord nog niet automatisch. Dit veld is bedoeld om de finishlijnlogica en juryweergave alvast realistischer op de baan te testen.
