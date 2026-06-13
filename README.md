@@ -1,4 +1,4 @@
-# BMX Finish Helper v6.1
+# BMX Finish Helper v6.2
 
 Jury-hulpmiddel voor BMX-finishpassages met:
 
@@ -9,7 +9,7 @@ Jury-hulpmiddel voor BMX-finishpassages met:
 - virtuele testpassage met willekeurig nummer;
 - experimentele OCR voor nummerherkenning.
 
-## Nieuw in v6.1
+## Nieuw in v6.2
 
 De OCR is verbeterd zonder extra OCR-zone-instelling:
 
@@ -48,3 +48,23 @@ Belangrijk:
 - laat `.npmrc` staan;
 - Vercel build command: `npm run build`;
 - output directory: `dist`.
+
+
+## v6.2 - OCR los testen
+
+Nieuw in v6.2:
+
+- Knop **Scan huidig beeld**.
+- OCR kan nu los getest worden zonder dat er eerst een finishpassage nodig is.
+- De scan probeert het volledige camerabeeld en meerdere midden-crops.
+- De app toont OCR-debugtekst, zodat zichtbaar is wat OCR denkt te lezen.
+- Als de scan een nummer vindt, wordt er een test-finishpassage met dat OCR-nummer toegevoegd.
+
+Gebruik voor OCR-testen:
+
+1. Zet **OCR proberen** aan.
+2. Houd een groot, donker nummer stil en goed zichtbaar in beeld.
+3. Druk **Scan huidig beeld**.
+4. Kijk naar de OCR-status en open eventueel **OCR debugtekst**.
+
+Let op: OCR blijft experimenteel. De live-detectie blijft leidend; OCR is alleen een hulpmiddel om een mogelijk nummerlabel toe te voegen.

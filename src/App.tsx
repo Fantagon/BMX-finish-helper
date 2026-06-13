@@ -26,6 +26,8 @@ export function App() {
   const [showDebug, setShowDebug] = useState(true);
   const [ocrEnabled, setOcrEnabled] = useState(false);
   const [ocrStatus, setOcrStatus] = useState("OCR uit");
+  const [ocrRawText, setOcrRawText] = useState("");
+  const [isManualScanRunning, setIsManualScanRunning] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const motionStateRef = useRef(createMotionDetectionState());
@@ -85,10 +87,10 @@ export function App() {
   function clearRace() {
     setTracks([]);
     setFinishEvents([]);
+    setOcrRawText("");
     ocrProcessedEventIdsRef.current.clear();
     resetMotionDetectionState(motionStateRef.current);
   }
-
 
   async function enrichFinishEventsWithOcr(events: FinishEvent[], currentTracks: RiderTrack[]) {
     if (!ocrEnabled || !videoRef.current) return;
@@ -101,13 +103,10 @@ export function App() {
 
       try {
         setOcrStatus("OCR leest nummer...");
-        const result = await recognizeNumberFromVideo(videoRef.current, track?.bbox);
+        const result = await recognizeNumberFromVideo(videoRef.current, track?.bbox, { includeFullFrame: false });
+        showOcrResult(result, "finishpassage");
 
-        if (!result.number) {
-          const details = result.candidates.length > 0 ? ` (${result.candidates.join(", ")})` : "";
-          setOcrStatus(`OCR: geen nummer gevonden${details}`);
-          continue;
-        }
+        if (!result.number) continue;
 
         setFinishEvents((currentEvents) =>
           currentEvents.map((currentEvent) =>
@@ -121,13 +120,59 @@ export function App() {
               : currentEvent
           )
         );
-        setOcrStatus(`OCR: mogelijk #${result.number}${result.candidates.length > 1 ? ` / ${result.candidates.slice(1, 3).join(", ")}` : ""}`);
       } catch {
         setOcrStatus("OCR niet beschikbaar");
       }
     }
   }
 
+  async function scanCurrentFrame() {
+    if (!videoRef.current || isManualScanRunning) return;
+
+    try {
+      setIsManualScanRunning(true);
+      setOcrEnabled(true);
+      setOcrStatus("OCR scant huidig beeld...");
+      setOcrRawText("");
+
+      const result = await recognizeNumberFromVideo(videoRef.current, undefined, { includeFullFrame: true });
+      showOcrResult(result, "handmatige scan");
+
+      if (result.number) {
+        const timestamp = Date.now();
+        const crossingPoint = finishLine
+          ? clampPoint({ x: (finishLine.a.x + finishLine.b.x) / 2, y: (finishLine.a.y + finishLine.b.y) / 2 })
+          : { x: 0.5, y: 0.55 };
+
+        const scanEvent: FinishEvent = {
+          id: crypto.randomUUID(),
+          trackId: `ocr-scan-${timestamp}`,
+          number: result.number,
+          confidence: result.confidence,
+          numberSource: "ocr",
+          crossedAt: timestamp,
+          crossingPoint,
+        };
+
+        setFinishEvents((current) => mergeFinishEvents(current, [scanEvent], timestamp));
+      }
+    } catch {
+      setOcrStatus("OCR niet beschikbaar");
+    } finally {
+      setIsManualScanRunning(false);
+    }
+  }
+
+  function showOcrResult(result: { number?: string; rawText: string; candidates: string[]; attempts: number }, source: string) {
+    const candidatesText = result.candidates.length > 0 ? result.candidates.join(", ") : "geen";
+    setOcrRawText(result.rawText || "Geen OCR-tekst teruggekregen.");
+
+    if (result.number) {
+      setOcrStatus(`OCR ${source}: mogelijk #${result.number} | kandidaten: ${candidatesText}`);
+    } else {
+      setOcrStatus(`OCR ${source}: geen nummer gevonden | kandidaten: ${candidatesText}`);
+    }
+  }
 
   function runVirtualTestPassage() {
     const timestamp = Date.now();
@@ -177,7 +222,6 @@ export function App() {
     setTracks((current) => [...current.filter((track) => !track.id.startsWith("virtual-test-")), virtualTrack]);
     setFinishEvents((current) => mergeFinishEvents(current, [virtualEvent], timestamp));
   }
-
 
   return (
     <main className="appShell raceModeShell">
@@ -234,6 +278,7 @@ export function App() {
             onChange={(event) => {
               setOcrEnabled(event.target.checked);
               setOcrStatus(event.target.checked ? "OCR klaar" : "OCR uit");
+              if (!event.target.checked) setOcrRawText("");
             }}
           />
           <span>
@@ -242,7 +287,17 @@ export function App() {
           </span>
         </label>
 
+        <button className="primaryButton scanButton" onClick={scanCurrentFrame} type="button" disabled={isManualScanRunning}>
+          {isManualScanRunning ? "Scant beeld..." : "Scan huidig beeld"}
+        </button>
+
         <div className="ocrStatus">{ocrStatus}</div>
+        {ocrRawText && (
+          <details className="ocrDetails">
+            <summary>OCR debugtekst</summary>
+            <p>{ocrRawText}</p>
+          </details>
+        )}
 
         <div className="settingsGrid">
           <label>
@@ -264,7 +319,7 @@ export function App() {
         </div>
 
         <div className="buttonRow stackedOnSmall">
-          <button className="primaryButton testButton" onClick={runVirtualTestPassage} type="button">
+          <button className="secondaryButton testButton" onClick={runVirtualTestPassage} type="button">
             Virtuele testpassage
           </button>
           <button className="secondaryButton" onClick={clearRace} type="button">
@@ -283,7 +338,6 @@ export function App() {
     </main>
   );
 }
-
 
 function getPerpendicularTravelVector(line: { a: Point; b: Point }): Point {
   const dx = line.b.x - line.a.x;

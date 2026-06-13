@@ -8,17 +8,22 @@ export type OcrResult = {
   attempts: number;
 };
 
+export type OcrOptions = {
+  includeFullFrame?: boolean;
+};
+
 let workerPromise: Promise<any> | null = null;
 
 export async function recognizeNumberFromVideo(
   video: HTMLVideoElement,
-  bbox?: BoundingBox
+  bbox?: BoundingBox,
+  options: OcrOptions = {}
 ): Promise<OcrResult> {
   if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth === 0 || video.videoHeight === 0) {
     return { rawText: "", candidates: [], attempts: 0 };
   }
 
-  const crops = makeOcrCrops(video, bbox);
+  const crops = makeOcrCrops(video, bbox, options);
   const worker = await getWorker();
 
   const allCandidates: string[] = [];
@@ -45,9 +50,8 @@ export async function recognizeNumberFromVideo(
       }
     }
 
-    // Stop early when OCR found a plausible 2- or 3-digit number with reasonable confidence.
-    // Single digits are allowed, but we do not stop early on them because BMX numbers are often 2-3 digits.
-    if (bestNumber && bestNumber.length >= 2 && bestConfidence >= 45) {
+    // Stop early for a plausible 2- or 3-digit BMX number.
+    if (bestNumber && bestNumber.length >= 2 && bestConfidence >= 35) {
       break;
     }
   }
@@ -88,26 +92,39 @@ async function getWorker(): Promise<any> {
 type CropCandidate = {
   name: string;
   box: BoundingBox;
-  mode: "threshold" | "inverted" | "contrast";
+  mode: "threshold" | "inverted" | "contrast" | "raw";
 };
 
-function makeOcrCrops(video: HTMLVideoElement, bbox?: BoundingBox): Array<{ name: string; canvas: HTMLCanvasElement }> {
+function makeOcrCrops(
+  video: HTMLVideoElement,
+  bbox?: BoundingBox,
+  options: OcrOptions = {}
+): Array<{ name: string; canvas: HTMLCanvasElement }> {
   const cropCandidates: CropCandidate[] = [];
 
-  if (bbox) {
+  if (options.includeFullFrame) {
     cropCandidates.push(
-      { name: "beweging-groot", box: expandBox(bbox, 0.42), mode: "threshold" },
-      { name: "beweging-invert", box: expandBox(bbox, 0.42), mode: "inverted" },
-      { name: "beweging-extra", box: expandBox(bbox, 0.58), mode: "contrast" }
+      { name: "volledig-contrast", box: { x: 0, y: 0, width: 1, height: 1 }, mode: "contrast" },
+      { name: "volledig-zwartwit", box: { x: 0, y: 0, width: 1, height: 1 }, mode: "threshold" },
+      { name: "volledig-invert", box: { x: 0, y: 0, width: 1, height: 1 }, mode: "inverted" }
     );
   }
 
-  // Extra algemene crops. Bij BMX zit het nummerbord vaak in het midden/onder-midden van de rijder.
-  // Dit helpt wanneer de bewegingsbox vooral rond de finishlijn ligt en niet precies rond het nummerbord.
+  if (bbox) {
+    cropCandidates.push(
+      { name: "beweging-groot", box: expandBox(bbox, 0.5), mode: "threshold" },
+      { name: "beweging-invert", box: expandBox(bbox, 0.5), mode: "inverted" },
+      { name: "beweging-extra", box: expandBox(bbox, 0.68), mode: "contrast" }
+    );
+  }
+
   cropCandidates.push(
-    { name: "midden", box: { x: 0.18, y: 0.20, width: 0.64, height: 0.58 }, mode: "threshold" },
-    { name: "midden-invert", box: { x: 0.18, y: 0.20, width: 0.64, height: 0.58 }, mode: "inverted" },
-    { name: "onder-midden", box: { x: 0.22, y: 0.32, width: 0.56, height: 0.48 }, mode: "threshold" }
+    { name: "midden-contrast", box: { x: 0.10, y: 0.12, width: 0.80, height: 0.68 }, mode: "contrast" },
+    { name: "midden-zwartwit", box: { x: 0.10, y: 0.12, width: 0.80, height: 0.68 }, mode: "threshold" },
+    { name: "midden-invert", box: { x: 0.10, y: 0.12, width: 0.80, height: 0.68 }, mode: "inverted" },
+    { name: "onder-midden", box: { x: 0.16, y: 0.30, width: 0.68, height: 0.54 }, mode: "threshold" },
+    { name: "linker-midden", box: { x: 0.00, y: 0.18, width: 0.70, height: 0.66 }, mode: "contrast" },
+    { name: "rechter-midden", box: { x: 0.30, y: 0.18, width: 0.70, height: 0.66 }, mode: "contrast" }
   );
 
   return cropCandidates.map((candidate) => ({
@@ -130,9 +147,8 @@ function makePreprocessedCrop(
   const sw = Math.max(1, Math.round(safeCrop.width * videoWidth));
   const sh = Math.max(1, Math.round(safeCrop.height * videoHeight));
 
-  // OCR works much better when small handwritten/printed numbers are enlarged first.
-  const outputWidth = 960;
-  const outputHeight = Math.max(280, Math.round((outputWidth * sh) / sw));
+  const outputWidth = 1280;
+  const outputHeight = Math.max(360, Math.round((outputWidth * sh) / sw));
   const canvas = document.createElement("canvas");
   canvas.width = outputWidth;
   canvas.height = outputHeight;
@@ -142,6 +158,8 @@ function makePreprocessedCrop(
 
   context.imageSmoothingEnabled = true;
   context.drawImage(video, sx, sy, sw, sh, 0, 0, outputWidth, outputHeight);
+
+  if (mode === "raw") return canvas;
 
   const image = context.getImageData(0, 0, outputWidth, outputHeight);
   const histogram = new Array<number>(256).fill(0);
@@ -155,7 +173,7 @@ function makePreprocessedCrop(
 
   for (let index = 0; index < image.data.length; index += 4) {
     const gray = image.data[index] * 0.299 + image.data[index + 1] * 0.587 + image.data[index + 2] * 0.114;
-    const contrasted = clamp((gray - 128) * 1.9 + 128, 0, 255);
+    const contrasted = clamp((gray - 128) * 2.35 + 128, 0, 255);
     let value = contrasted;
 
     if (mode === "threshold" || mode === "inverted") {
@@ -253,7 +271,7 @@ function findOtsuThreshold(histogram: number[]): number {
 }
 
 function compactText(text: string): string {
-  return text.replace(/\s+/g, " ").trim().slice(0, 80);
+  return text.replace(/\s+/g, " ").trim().slice(0, 120);
 }
 
 function clamp(value: number, min: number, max: number): number {
